@@ -1,100 +1,8 @@
-# from flask import Flask, render_template,jsonify, request
-# from src.helper import download_hugging_face_embeddings
-# from langchain_pinecone import PineconeVectorStore
-# from langchain.llms import HuggingFaceHub
-# from langchain.prompts import ChatPromptTemplate
-# from langchain.chains import create_retrieval_chain
-# from langchain.chains.combine_documents import create_stuff_documents_chain
-# from langchain_core.prompts import ChatPromptTemplate
-# from dotenv import load_dotenv
-# from langchain_huggingface import HuggingFaceEndpoint
-# from langchain_community.llms import HuggingFaceHub
-# # Correct imports for HuggingFaceEmbeddings and HuggingFaceHub
-
-# from langchain_huggingface import HuggingFaceEmbeddings  # For embeddings
-
-
-# from src.prompt import *
-# import os
-
-
-# app = Flask(__name__)
-
-# load_dotenv()
-
-
-# PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
-# os.environ['PINECONE_API_KEY'] = PINECONE_API_KEY  # Correct way to set the environment variable
-
-# HUGGINGFACEHUB_API_TOKEN = os.environ.get('HUGGINGFACEHUB_API_TOKEN')
-# os.environ['HUGGINGFACEHUB_API_TOKEN'] = HUGGINGFACEHUB_API_TOKEN  # Correct way to set the environment variable
-
-
-# embeddings =  download_hugging_face_embeddings()
-
-# index_name = "medi-chatbot"
-
-
-# #embed each chunk and upsert the embeddings into the pine cone index.
-# docsearch = PineconeVectorStore.from_existing_index(
-#     index_name=index_name,
-#     embedding=embeddings,
-# )
-
-# retriever = docsearch.as_retriever(search_type="similarity", search_kwargs={"k":3})
-
-
-# # Hugging Face Hub ke liye free model configuration
-# llm = HuggingFaceHub(
-#     repo_id="google/flan-t5-large",
-#     model_kwargs={
-#         "temperature": 0.7,
-#         "max_new_tokens": 250,
-#         "top_p": 0.9
-#     }
-# )
-# prompt = ChatPromptTemplate.from_messages(
-#     [
-#         ("system", system_prompt),
-#         ("human", "{input}")
-#     ]
-# )
-
-
-# # Create a chain for generating responses
-# question_answer_chain = create_stuff_documents_chain(llm,prompt)
-# rag_chain = create_retrieval_chain(retriever,question_answer_chain)
-
-# @app.route("/")
-# def index():
-#     return render_template('chat.html')
-
-# @app.route("/get", methods=["GET", "POST"])
-# def chat():
-#     msg = request.form["msg"]
-#     input = msg
-#     print(input)
-#     response = rag_chain.invoke({"input": msg})
-#     print("Response : ", response["answer"])
-#     return str(response["answer"])
-
-
-# if __name__ == 'main':
-#     app.run(host="0.0.0.0", port = 8080, debug= True)
-
-
-
 from flask import Flask, render_template, request, jsonify
-from src.helper import download_hugging_face_embeddings
-from langchain_pinecone import PineconeVectorStore
-from langchain_community.llms import HuggingFaceHub
-from langchain.prompts import ChatPromptTemplate
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from dotenv import load_dotenv
 import os
 import logging
-
+import google.generativeai as genai
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,59 +14,33 @@ load_dotenv()
 
 # API Key Configuration
 PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
-HUGGINGFACEHUB_API_TOKEN = os.getenv('HUGGINGFACEHUB_API_TOKEN')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Validate API Keys
-if not PINECONE_API_KEY or not HUGGINGFACEHUB_API_TOKEN:
-    logger.error("Missing API keys. Please check your .env file.")
-    raise ValueError("API keys are required")
+if not GEMINI_API_KEY:
+    logger.error("Missing GEMINI_API_KEY. Please check your .env file.")
+    raise ValueError("GEMINI_API_KEY is required")
 
-# Download embeddings
-try:
-    embeddings = download_hugging_face_embeddings()
-except Exception as e:
-    logger.error(f"Embedding download failed: {e}")
-    raise
+# Configure the Gemini API key
+genai.configure(api_key=GEMINI_API_KEY)
 
-# Pinecone Index Configuration
-index_name = "medi-chatbot11"
+# Initialize the Gemini model
+llm = genai.GenerativeModel("gemini-1.5-flash")
 
-# Initialize Vector Store
-try:
-    docsearch = PineconeVectorStore.from_existing_index(
-        index_name=index_name,
-        embedding=embeddings,
-    )
-    retriever = docsearch.as_retriever(
-        search_type="similarity", 
-        search_kwargs={"k": 3}
-    )
-except Exception as e:
-    logger.error(f"Vector store initialization failed: {e}")
-    raise
+# Define a function for generating responses
+def generate_response(llm, prompt, context, input_text):
+    # Combine system prompt and input
+    full_prompt = prompt.format(context=context) + "\n\n" + input_text
+    # Generate content without additional arguments
+    response = llm.generate_content(full_prompt)
+    return response.text
 
-# Language Model Configuration
-llm = HuggingFaceHub(
-    repo_id="google/flan-t5-large",
-    model_kwargs={
-        "temperature": 0.7,
-        "max_length": 250
-    }
-)
+# Simulate retrieval (mock context retrieval)
+def mock_retriever(query):
+    return "Mocked retrieved context for: " + query
 
 # Prompt Template
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are a helpful medical assistant."),
-    ("human", "Context: {context}\n\nQuestion: {input}")
-])
-
-# Create Response Generation Chain
-try:
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
-except Exception as e:
-    logger.error(f"Chain creation failed: {e}")
-    raise
+system_prompt = "You are a helpful medical assistant."
 
 @app.route("/")
 def index():
@@ -172,16 +54,16 @@ def chat():
         if not msg:
             return jsonify({"error": "No message provided"}), 400
 
-        logger.info(f"User  Input: {msg}")
+        logger.info(f"User Input: {msg}")
         
-        # Invoke RAG chain
-        response = rag_chain.invoke({"input": msg})
+        # Retrieve context (mocked here)
+        retrieved_context = mock_retriever(msg)
         
-        # Extract answer
-        answer = response.get('answer', 'No response generated')
+        # Generate response using Gemini model
+        response_text = generate_response(llm, system_prompt, retrieved_context, msg)
         
-        logger.info(f"Bot Response: {answer}")
-        return str(answer)
+        logger.info(f"Bot Response: {response_text}")
+        return str(response_text)
     
     except Exception as e:
         logger.error(f"Chat processing error: {e}")
@@ -189,3 +71,4 @@ def chat():
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)
+    
