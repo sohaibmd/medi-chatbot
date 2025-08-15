@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import os
 import logging
+
+
 import google.generativeai as genai
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -40,7 +42,7 @@ def mock_retriever(query):
     return "Mocked retrieved context for: " + query
 
 # Prompt Template
-system_prompt = "You are a helpful medical assistant."
+system_prompt = "You are a helpful medical assistant. and you give the solution of user query related to medical queries "
 
 @app.route("/")
 def index():
@@ -72,3 +74,9 @@ def chat():
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080, debug=True)
     
+
+
+
+
+
+
