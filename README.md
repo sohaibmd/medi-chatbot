@@ -1,4 +1,10 @@
-# MediChatbot – AI-powered Medical Assistant
+
+# 🩺 MediChatbot – AI-powered Medical Assistant
+
+![Python](https://img.shields.io/badge/Python-3.x-blue?logo=python)
+![Flask](https://img.shields.io/badge/Flask-Backend-orange?logo=flask)
+![AI](https://img.shields.io/badge/AI-Google_Gemini-red)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 MediChatbot is an AI-powered medical information assistant built using **Flask** and the **Google Gemini API**.  
 It provides detailed, accurate answers to general medical queries in real-time.
@@ -105,10 +111,6 @@ Your application will be available at:
 ### Chatbot Interface
 ![Chatbot UI](images/chat_ui.png)
 
----
-
 ## Architecture Diagram
 ![Architecture](images/architecture.png)
-
-
 
